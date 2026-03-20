@@ -1,4 +1,6 @@
--- Create tables for streaming data storage
+-- Create schema for streaming staging tables
+CREATE SCHEMA IF NOT EXISTS staging;
+CREATE SCHEMA IF NOT EXISTS monitoring;
 
 -- NOAA Water stream table
 CREATE TABLE IF NOT EXISTS staging.water_stream (
@@ -12,8 +14,8 @@ CREATE TABLE IF NOT EXISTS staging.water_stream (
     ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_water_stream_dataset ON staging.water_stream(dataset_id);
-CREATE INDEX idx_water_stream_timestamp ON staging.water_stream(timestamp);
+CREATE INDEX IF NOT EXISTS idx_water_stream_dataset ON staging.water_stream(dataset_id);
+CREATE INDEX IF NOT EXISTS idx_water_stream_timestamp ON staging.water_stream(timestamp);
 
 -- OpenWeather stream table
 CREATE TABLE IF NOT EXISTS staging.weather_stream (
@@ -29,8 +31,8 @@ CREATE TABLE IF NOT EXISTS staging.weather_stream (
     CONSTRAINT check_humidity CHECK (humidity >= 0 AND humidity <= 100)
 );
 
-CREATE INDEX idx_weather_stream_location ON staging.weather_stream(location);
-CREATE INDEX idx_weather_stream_timestamp ON staging.weather_stream(timestamp);
+CREATE INDEX IF NOT EXISTS idx_weather_stream_location ON staging.weather_stream(location);
+CREATE INDEX IF NOT EXISTS idx_weather_stream_timestamp ON staging.weather_stream(timestamp);
 
 -- Government alerts stream table
 CREATE TABLE IF NOT EXISTS staging.alerts_stream (
@@ -43,8 +45,8 @@ CREATE TABLE IF NOT EXISTS staging.alerts_stream (
     ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_alerts_stream_severity ON staging.alerts_stream(severity);
-CREATE INDEX idx_alerts_stream_timestamp ON staging.alerts_stream(timestamp);
+CREATE INDEX IF NOT EXISTS idx_alerts_stream_severity ON staging.alerts_stream(severity);
+CREATE INDEX IF NOT EXISTS idx_alerts_stream_timestamp ON staging.alerts_stream(timestamp);
 
 -- Stream consumer lag monitoring
 CREATE TABLE IF NOT EXISTS monitoring.consumer_lag (
@@ -58,4 +60,4 @@ CREATE TABLE IF NOT EXISTS monitoring.consumer_lag (
     measured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_consumer_lag_topic ON monitoring.consumer_lag(topic, consumer_group);
+CREATE INDEX IF NOT EXISTS idx_consumer_lag_topic ON monitoring.consumer_lag(topic, consumer_group);

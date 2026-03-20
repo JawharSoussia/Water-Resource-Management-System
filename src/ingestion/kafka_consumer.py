@@ -1,4 +1,4 @@
-"""Kafka consumer for processing streaming data."""
+"""Kafka consumer for processing streaming data and writing to PostgreSQL."""
 
 import os
 import json
@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class StreamConsumer:
-    """Consumes and processes streaming events."""
+    """Consumes and processes streaming events from Kafka."""
 
     def __init__(self, topic: str, group_id: str):
         """
@@ -29,7 +29,7 @@ class StreamConsumer:
             topic: Kafka topic to consume from
             group_id: Consumer group ID
         """
-        self.bootstrap_servers = os.getenv("KAFKA_BROKER", "localhost:9092").split(",")
+        self.bootstrap_servers = os.getenv("KAFKA_BROKER", "127.0.0.1:9092").split(",")
         self.topic = topic
         self.group_id = group_id
 
@@ -56,7 +56,7 @@ class StreamConsumer:
 
     def process_weather_event(self, event: dict):
         """
-        Process weather stream event.
+        Process weather stream event and write to PostgreSQL.
 
         Args:
             event: Event dictionary from Kafka
@@ -67,58 +67,68 @@ class StreamConsumer:
             main_data = weather_data.get("main", {})
             wind_data = weather_data.get("wind", {})
             rain_data = weather_data.get("rain", {})
+            timestamp = event.get("timestamp")
 
-            # Insert into database
+            # Insert into database using parameterized query
             with self.engine.connect() as conn:
-                conn.execute(
-                    f"""
+                query = text("""
                     INSERT INTO staging.weather_stream
                     (location, temperature, humidity, pressure, wind_speed, rain_mm, timestamp)
-                    VALUES ('{location}', {main_data.get('temp')}, {main_data.get('humidity')},
-                            {main_data.get('pressure')}, {wind_data.get('speed', 0)},
-                            {rain_data.get('1h', 0)}, '{event.get('timestamp')}')
-                    """
-                )
+                    VALUES (:location, :temp, :humidity, :pressure, :wind_speed, :rain_mm, :timestamp)
+                """)
+
+                conn.execute(query, {
+                    "location": location,
+                    "temp": main_data.get('temp'),
+                    "humidity": main_data.get('humidity'),
+                    "pressure": main_data.get('pressure'),
+                    "wind_speed": wind_data.get('speed', 0),
+                    "rain_mm": rain_data.get('1h', 0),
+                    "timestamp": timestamp
+                })
                 conn.commit()
 
             logger.info(f"✓ Processed weather event for {location}")
+            return True
 
         except Exception as e:
             logger.error(f"Error processing weather event: {e}")
+            return False
 
     def process_water_event(self, event: dict):
         """
-        Process water stream event.
+        Process water stream event and write to PostgreSQL.
 
         Args:
             event: Event dictionary from Kafka
         """
         try:
-            station = event.get("station")
+            dataset = event.get("dataset")
             water_data = event.get("water", {})
+            timestamp = event.get("timestamp")
 
-            # Extract streamflow and stage data
-            time_series = water_data.get("value", {}).get("timeSeries", [])
-            if time_series:
-                ts = time_series[0]
-                values = ts.get("values", [{}])[0].get("value", [{}])[0]
-                streamflow = values.get("value")
+            # Insert into database using parameterized query
+            with self.engine.connect() as conn:
+                query = text("""
+                    INSERT INTO staging.water_stream
+                    (dataset_id, temperature, precipitation, timestamp)
+                    VALUES (:dataset_id, :temperature, :precipitation, :timestamp)
+                """)
 
-                # Insert into database
-                with self.engine.connect() as conn:
-                    conn.execute(
-                        f"""
-                        INSERT INTO staging.water_stream
-                        (station_id, streamflow_cfs, timestamp)
-                        VALUES ('{station}', {streamflow}, '{event.get('timestamp')}')
-                        """
-                    )
-                    conn.commit()
+                conn.execute(query, {
+                    "dataset_id": dataset,
+                    "temperature": water_data.get('temperature'),
+                    "precipitation": water_data.get('precipitation'),
+                    "timestamp": timestamp
+                })
+                conn.commit()
 
-                logger.info(f"✓ Processed water event for station {station}")
+            logger.info(f"✓ Processed water event for dataset {dataset}")
+            return True
 
         except Exception as e:
             logger.error(f"Error processing water event: {e}")
+            return False
 
     def consume(self, max_messages: int = None):
         """
@@ -134,13 +144,15 @@ class StreamConsumer:
             for message in self.consumer:
                 try:
                     if "water" in self.topic:
-                        self.process_water_event(message.value)
+                        success = self.process_water_event(message.value)
                     elif "weather" in self.topic:
-                        self.process_weather_event(message.value)
+                        success = self.process_weather_event(message.value)
                     else:
                         logger.info(f"Message: {message.value}")
+                        success = True
 
-                    messages_consumed += 1
+                    if success:
+                        messages_consumed += 1
 
                     if max_messages and messages_consumed >= max_messages:
                         logger.info(f"Reached max messages ({max_messages})")
@@ -163,9 +175,9 @@ class StreamConsumer:
 
 def main():
     """Main entry point."""
-    # Consume from water topic
-    consumer = StreamConsumer("aqua-realtime-water", "water-processing-group")
-    consumer.consume(max_messages=5)  # For testing
+    # Consume from weather topic
+    consumer = StreamConsumer("aqua-realtime-weather", "weather-processing-group")
+    consumer.consume()  # Run indefinitely
 
 
 if __name__ == "__main__":
