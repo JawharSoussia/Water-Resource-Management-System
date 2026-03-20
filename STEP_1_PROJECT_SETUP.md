@@ -742,7 +742,6 @@ git commit -m "Configure project environment and Docker setup
 - Added .gitignore and .env template
 - Initialized README with architecture diagram
 
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 
 # View commit
 git log --oneline -5

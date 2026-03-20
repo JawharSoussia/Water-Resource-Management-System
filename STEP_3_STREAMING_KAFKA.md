@@ -205,30 +205,32 @@ class AQUARealtimeProducer:
         )
         self.openweather_api_key = os.getenv("OPENWEATHER_API_KEY")
         self.locations = os.getenv("OPENWEATHER_LOCATIONS", "").split(",")
-        self.usgs_stations = os.getenv("USGS_STATIONS", "").split(",")
+        self.noaa_datasets = os.getenv("NOAA_DATASETS", "nclimgrid").split(",")
+        self.noaa_coordinates = os.getenv("NOAA_COORDINATES", "35.7942,10.1671")
 
         logger.info(f"AQUA Real-time producer initialized")
 
-    def fetch_and_produce_water(self, station: str) -> bool:
+    def fetch_and_produce_water(self, dataset: str) -> bool:
         """
-        Fetch USGS water data and produce to Kafka.
+        Fetch NOAA water data and produce to Kafka.
 
         Args:
-            station: USGS station ID
+            dataset: NOAA dataset name (e.g., "nclimgrid")
 
         Returns:
             True if successful, False otherwise
         """
         try:
-            # Fetch from USGS
-            params = {
-                "sites": station.strip(),
-                "parameters": "00060,00065",  # Streamflow + stage
-                "format": "json"
-            }
+            # Fetch from NOAA
+            lat, lon = self.noaa_coordinates.split(",")
             response = requests.get(
-                "https://waterservices.usgs.gov/nwis/instantaneous",
-                params=params,
+                "https://www.ncei.noaa.gov/api/data/access/nclimgrid",
+                params={
+                    "dataset": dataset.strip(),
+                    "latitude": lat.strip(),
+                    "longitude": lon.strip(),
+                    "format": "json"
+                },
                 timeout=5
             )
             response.raise_for_status()
@@ -237,32 +239,32 @@ class AQUARealtimeProducer:
             # Add metadata
             event = {
                 "timestamp": datetime.utcnow().isoformat(),
-                "station": station,
+                "dataset": dataset,
                 "water": water_data,
-                "source": "usgs-water-stream"
+                "source": "noaa-water-stream"
             }
 
             # Send to Kafka
-            partition = hash(station) % 3  # Partition by station
+            partition = hash(dataset) % 3  # Partition by dataset
             future = self.producer.send(
                 "aqua-realtime-water",
                 value=event,
-                key=station.encode('utf-8'),
+                key=dataset.encode('utf-8'),
                 partition=partition
             )
 
             record_metadata = future.get(timeout=5)
 
             logger.info(
-                f"✓ Produced water event for {station} "
+                f"✓ Produced water event for {dataset} "
                 f"(partition: {record_metadata.partition}, "
                 f"offset: {record_metadata.offset})"
             )
             return True
 
         except Exception as e:
-            logger.error(f"Error producing water event for {station}: {e}")
-            self.produce_error_event(str(e), station, "water")
+            logger.error(f"Error producing water event for {dataset}: {e}")
+            self.produce_error_event(str(e), dataset, "water")
             return False
 
     def fetch_and_produce_weather(self, location: str) -> bool:
@@ -346,9 +348,9 @@ class AQUARealtimeProducer:
 
         try:
             while True:
-                # Fetch water data from all stations
-                for station in self.usgs_stations:
-                    self.fetch_and_produce_water(station)
+                # Fetch water data from all datasets
+                for dataset in self.noaa_datasets:
+                    self.fetch_and_produce_water(dataset)
                     time.sleep(1)
 
                 # Fetch weather data from all locations
@@ -374,8 +376,8 @@ def main():
     """Main entry point."""
     producer = AQUARealtimeProducer()
     # For testing, run once
-    for station in producer.usgs_stations:
-        producer.fetch_and_produce_water(station)
+    for dataset in producer.noaa_datasets:
+        producer.fetch_and_produce_water(dataset)
     for location in producer.locations:
         producer.fetch_and_produce_weather(location)
     producer.close()
@@ -577,17 +579,19 @@ Create file: `config/stream_tables.sql`
 ```sql
 -- Create tables for streaming data storage
 
--- USGS Water stream table
+-- NOAA Water stream table
 CREATE TABLE IF NOT EXISTS staging.water_stream (
     id SERIAL PRIMARY KEY,
-    station_id VARCHAR(100) NOT NULL,
-    streamflow_cfs DECIMAL(12, 2),
-    stage_feet DECIMAL(8, 2),
+    dataset_id VARCHAR(100) NOT NULL,
+    temperature DECIMAL(8, 2),
+    precipitation DECIMAL(8, 2),
+    latitude DECIMAL(10, 6),
+    longitude DECIMAL(10, 6),
     timestamp TIMESTAMP,
     ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_water_stream_station ON staging.water_stream(station_id);
+CREATE INDEX idx_water_stream_dataset ON staging.water_stream(dataset_id);
 CREATE INDEX idx_water_stream_timestamp ON staging.water_stream(timestamp);
 
 -- OpenWeather stream table
@@ -823,7 +827,7 @@ git add src/ingestion/kafka_*.py src/monitoring/ config/stream_tables.sql tests/
 # Commit
 git commit -m "Implement real-time streaming with Apache Kafka for AQUA water system
 
-- Created Kafka producer for USGS water and OpenWeather data
+- Created Kafka producer for NOAA water and OpenWeather data
 - Created Kafka consumer for stream processing
 - Added topic management and monitoring
 - Integrated with PostgreSQL for stream storage
@@ -832,7 +836,7 @@ git commit -m "Implement real-time streaming with Apache Kafka for AQUA water sy
 - Added consumer lag monitoring
 
 Streams supported:
-- aqua-realtime-water: Real-time USGS water levels and streamflow
+- aqua-realtime-water: Real-time NOAA water data for MENA region
 - aqua-realtime-weather: Real-time weather data from OpenWeather API
 - aqua-realtime-alerts: Government flood and drought alerts
 - data-pipeline-errors: Dead-letter queue for error handling
@@ -846,9 +850,9 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 
 Before moving to Step 4:
 
-- [ ] Kafka topics created successfully
-- [ ] Producer fetches weather data and sends to Kafka
-- [ ] Consumer receives messages from Kafka
+- [x] Kafka topics created successfully
+- [x] Producer fetches weather data and sends to Kafka
+- [x] Consumer receives messages from Kafka
 - [ ] Data inserted into PostgreSQL streaming tables
 - [ ] Consumer lag monitoring working
 - [ ] All streaming tests passing
