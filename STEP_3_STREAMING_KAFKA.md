@@ -1437,12 +1437,12 @@ Before moving to Step 4:
 - [x] Kafka topics created successfully
 - [x] Producer fetches weather data and sends to Kafka
 - [x] Consumer receives messages from Kafka
-- [ ] Data inserted into PostgreSQL streaming tables (run Step 3.4)
-- [ ] Consumer lag monitoring working (run Step 3.5)
+- [x] Data inserted into PostgreSQL streaming tables (run Step 3.4)
+- [x] Consumer lag monitoring working (run Step 3.5)
 - [x] All streaming tests passing (run Step 3.6)
 - [x] Error handling for failed produces (implemented)
 - [x] Documentation complete (complete this step)
-- [ ] Git commit created (run Step 3.9)
+- [x] Git commit created (run Step 3.9)
 
 ---
 
