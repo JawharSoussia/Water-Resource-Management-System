@@ -1,0 +1,14 @@
+data_pipeline:
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      user: datauser
+      password: datauser
+      port: 5432
+      dbname: data_pipeline_db
+      schema: analytics
+      threads: 4
+      keepalives_idle: 0
+
+  target: dev

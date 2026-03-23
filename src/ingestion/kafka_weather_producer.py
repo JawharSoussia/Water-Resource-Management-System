@@ -35,7 +35,10 @@ class WeatherStreamProducer:
             connections_max_idle_ms=540000
         )
         self.openweather_api_key = os.getenv("OPENWEATHER_API_KEY", "")
+        self.locations = os.getenv("OPENWEATHER_LOCATIONS", "").split(",")
+        self.locations = [loc.strip() for loc in self.locations if loc.strip()]
         logger.info(f"Weather Stream Producer initialized with bootstrap servers: {self.bootstrap_servers}")
+        logger.info(f"Weather locations: {self.locations}")
 
     def fetch_and_produce(self, location: str) -> bool:
         """
@@ -75,12 +78,10 @@ class WeatherStreamProducer:
             }
 
             # Send to Kafka
-            partition = hash(location) % 2  # Partition by location
             future = self.producer.send(
                 self.topic,
                 value=event,
-                key=location.encode('utf-8'),
-                partition=partition
+                key=location.encode('utf-8')
             )
 
             record_metadata = future.get(timeout=5)
@@ -104,7 +105,12 @@ class WeatherStreamProducer:
 
 
 if __name__ == "__main__":
+    import sys
     producer = WeatherStreamProducer()
-    # Test with a location
-    producer.fetch_and_produce("London")
+    # Fetch weather for all configured locations
+    if producer.locations:
+        for location in producer.locations:
+            producer.fetch_and_produce(location)
+    else:
+        logger.warning("No locations configured in OPENWEATHER_LOCATIONS")
     producer.close()

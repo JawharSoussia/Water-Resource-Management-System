@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: stg_weather
+    description: Cleaned weather data
+    columns:
+      - name: weather_id
+        description: Unique weather record ID
+        tests:
+          - unique
+          - not_null
+
+      - name: city_name
+        description: City name
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['London', 'Paris', 'Tokyo', 'NewYork', 'Sydney']
+
+      - name: temperature_celsius
+        description: Temperature in Celsius
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: -60
+              max_value: 60
+
+      - name: humidity_percent
+        description: Humidity percentage
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 100

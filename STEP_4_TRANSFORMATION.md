@@ -570,15 +570,15 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 
 Before moving to Step 5:
 
-- [ ] dbt project initialized
-- [ ] dbt models created and running
-- [ ] All dbt tests passing
-- [ ] Staging tables created in database
-- [ ] Analytics tables aggregating correctly
-- [ ] Enrichment script runs without errors
-- [ ] Enriched data tables created
-- [ ] Documentation generated
-- [ ] Git commit created
+- [x] dbt project initialized
+- [x] dbt models created and running
+- [x] All dbt tests passing
+- [x] Staging tables created in database
+- [x] Analytics tables aggregating correctly
+- [x] Enrichment script runs without errors
+- [x] Enriched data tables created
+- [x] Documentation generated
+- [x] Git commit created
 
 ---
 

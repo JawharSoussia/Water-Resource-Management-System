@@ -33,7 +33,7 @@ def verify_streaming_data():
             cursor.execute("""
                 SELECT location, temperature, humidity, timestamp
                 FROM staging.weather_stream
-                ORDER BY ingested_at DESC
+                ORDER BY created_at DESC
                 LIMIT 5
             """)
             columns = [desc[0] for desc in cursor.description]
@@ -54,7 +54,7 @@ def verify_streaming_data():
             cursor.execute("""
                 SELECT dataset_id, temperature, precipitation, timestamp
                 FROM staging.water_stream
-                ORDER BY ingested_at DESC
+                ORDER BY created_at DESC
                 LIMIT 5
             """)
             columns = [desc[0] for desc in cursor.description]
@@ -73,9 +73,9 @@ def verify_streaming_data():
 
         if count > 0:
             cursor.execute("""
-                SELECT consumer_group, topic, partition, lag, measured_at
+                SELECT consumer_group, topic, partition, lag, checked_at
                 FROM monitoring.consumer_lag
-                ORDER BY measured_at DESC
+                ORDER BY checked_at DESC
                 LIMIT 5
             """)
             columns = [desc[0] for desc in cursor.description]

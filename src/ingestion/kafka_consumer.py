@@ -70,7 +70,7 @@ class StreamConsumer:
             timestamp = event.get("timestamp")
 
             # Insert into database using parameterized query
-            with self.engine.connect() as conn:
+            with self.engine.begin() as conn:
                 query = text("""
                     INSERT INTO staging.weather_stream
                     (location, temperature, humidity, pressure, wind_speed, rain_mm, timestamp)
@@ -86,7 +86,6 @@ class StreamConsumer:
                     "rain_mm": rain_data.get('1h', 0),
                     "timestamp": timestamp
                 })
-                conn.commit()
 
             logger.info(f"✓ Processed weather event for {location}")
             return True
@@ -108,7 +107,7 @@ class StreamConsumer:
             timestamp = event.get("timestamp")
 
             # Insert into database using parameterized query
-            with self.engine.connect() as conn:
+            with self.engine.begin() as conn:
                 query = text("""
                     INSERT INTO staging.water_stream
                     (dataset_id, temperature, precipitation, timestamp)
@@ -121,7 +120,6 @@ class StreamConsumer:
                     "precipitation": water_data.get('precipitation'),
                     "timestamp": timestamp
                 })
-                conn.commit()
 
             logger.info(f"✓ Processed water event for dataset {dataset}")
             return True
