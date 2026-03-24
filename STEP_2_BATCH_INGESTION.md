@@ -39,28 +39,8 @@ Build robust Python scripts that automatically fetch data from 2 distinct API so
 - **Source 2:** Weather.gov (US) or NOAA (no API key needed)
   - Endpoint: `https://api.weather.gov/points/<lat>,<lon>`
 
-#### Option B: Finance/Stocks
-- **Source 1:** Alpha Vantage (stock data, free tier)
-  - Endpoint: `https://www.alphavantage.co/query`
-  - Get API key: https://www.alphavantage.co/
 
-- **Source 2:** CoinGecko Crypto (no API key needed)
-  - Endpoint: `https://api.coingecko.com/api/v3`
 
-#### Option C: News & Content
-- **Source 1:** NewsAPI (free tier: 100 req/day)
-  - Endpoint: `https://newsapi.org/v2/everything`
-  - Get API key: https://newsapi.org/
-
-- **Source 2:** Guardian Open Platform
-  - Endpoint: `https://open-platform.theguardian.com/search`
-
-#### Option D: Sports Data
-- **Source 1:** ESPN API (unofficial, no key needed)
-  - Endpoint: `https://site.api.espn.com/`
-
-- **Source 2:** TheSportsDB (free, no key)
-  - Endpoint: `https://www.thesportsdb.com/api/`
 
 ---
 

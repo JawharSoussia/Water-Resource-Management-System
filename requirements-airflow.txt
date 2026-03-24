@@ -1,0 +1,24 @@
+# Essential Airflow Providers
+apache-airflow-providers-postgres
+apache-airflow-providers-apache-kafka
+
+# Database & Connection
+psycopg2-binary
+
+# Data Processing
+pandas
+numpy
+
+# Kafka
+kafka-python
+
+# MinIO/S3
+minio
+boto3
+
+# dbt
+dbt-postgres
+
+# Testing & Utilities
+pytest
+python-dotenv

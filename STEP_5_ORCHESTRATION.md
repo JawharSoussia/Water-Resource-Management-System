@@ -549,12 +549,12 @@ if __name__ == "__main__":
 airflow db init
 
 # Create admin user
-airflow users create \
+airflow users create \ 
     --username admin \
     --firstname Admin \
     --lastname User \
     --role Admin \
-    --email admin@example.com \
+    --email soussiajawhar2@gmail.com \
     --password admin123
 ```
 
@@ -650,18 +650,18 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 
 Before moving to Step 6:
 
-- [ ] Airflow database initialized
-- [ ] Admin user created
-- [ ] Scheduler started successfully
-- [ ] Webserver accessible at localhost:8080
-- [ ] DAGs visible in UI
-- [ ] DAGs have no import errors
-- [ ] Task dependencies show in graph
-- [ ] Manual DAG trigger successful
-- [ ] Logs showing task execution
-- [ ] Monitoring DAG running hourly
-- [ ] All DAG tests passing
-- [ ] Git commit created
+- [x] Airflow database initialized
+- [x] Admin user created
+- [x] Scheduler started successfully
+- [x] Webserver accessible at localhost:8080
+- [x] DAGs visible in UI
+- [x] DAGs have no import errors
+- [x] Task dependencies show in graph
+- [x] Manual DAG trigger successful
+- [x] Logs showing task execution
+- [x] Monitoring DAG running hourly
+- [x] All DAG tests passing
+- [x] Git commit created
 
 ---
 
