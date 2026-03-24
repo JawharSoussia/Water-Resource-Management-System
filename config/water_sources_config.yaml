@@ -1,0 +1,104 @@
+water_systems:
+
+  # Tunisia - Primary Focus
+  tunisia:
+    name: "Tunisia Water System"
+    country_code: "TN"
+    region: "MENA"
+    center_coords:
+      latitude: 35.7942
+      longitude: 10.1671
+
+    # Major water stations/regions
+    stations:
+      - name: "Oued Medjerda"
+        latitude: 36.5
+        longitude: 10.2
+        type: "river"
+        priority: "high"
+
+      - name: "Chott El-Djerid"
+        latitude: 33.7
+        longitude: 8.45
+        type: "salt_lake"
+        priority: "high"
+
+      - name: "Tunis Aquifer"
+        latitude: 36.8
+        longitude: 10.2
+        type: "groundwater"
+        priority: "medium"
+
+      - name: "Sfax Region"
+        latitude: 34.74
+        longitude: 10.76
+        type: "agricultural"
+        priority: "medium"
+
+# NOAA Water API Configuration
+noaa_water_api:
+  base_url: "https://www.ncei.noaa.gov/api/v2"
+  endpoints:
+    water_levels: "/climgrid"
+    precipitation: "/nclimgrid"
+
+  available_datasets:
+    - name: "NCLIMGRID"
+      description: "Climate grid data covering MENA"
+      temporal_resolution: "daily"
+      spatial_resolution: "0.5 degrees"
+
+    - name: "GHCN-Daily"
+      description: "Global Historical Climatology Network"
+      temporal_resolution: "daily"
+      includes: ["precip", "temp", "snow"]
+
+# USGS Water Services Configuration
+usgs_water_api:
+  base_url: "https://waterservices.usgs.gov/nwis"
+  endpoints:
+    instantaneous: "/iv"
+    daily_values: "/dv"
+    groundwater: "/gwlevels"
+
+  parameter_codes:
+    "00060": "Discharge (streamflow) [cubic feet per second]"
+    "00065": "Gage height (water surface elevation) [feet]"
+    "00045": "Precipitation [inches]"
+    "62615": "Groundwater level depth below land surface [feet]"
+
+# Data Validation Rules
+validation_rules:
+
+  water_level:
+    min_value: -100  # meters below sea level (Dead Sea level)
+    max_value: 5000  # meters above sea level (high mountains/glaciers)
+    null_allowed: false
+
+  precipitation:
+    min_value: 0
+    max_value: 500  # mm per day (extreme rain)
+    null_allowed: true
+
+  discharge:
+    min_value: 0
+    max_value: 100000  # cubic meters per second
+    null_allowed: false
+
+  temperature:
+    min_value: -50  # celsius
+    max_value: 60   # celsius
+    null_allowed: true
+
+# Retry Configuration
+retry_strategy:
+  max_attempts: 3
+  initial_backoff_seconds: 5
+  max_backoff_seconds: 300
+  backoff_multiplier: 2
+
+# Batch Processing
+batch_processing:
+  batch_size: 100
+  timeout_seconds: 30
+  parallel_requests: 5

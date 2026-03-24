@@ -1,220 +1,234 @@
-"""NOAA Global Water Data ingestion for MENA region."""
+"""NOAA Global Water API data ingestion for AQUA system."""
 
 import os
-import time
 import logging
 import requests
-from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import List, Dict, Any, Optional
+from datetime import datetime, timedelta
+import uuid
 from dotenv import load_dotenv
-from .minio_client import MinIOClient
+import yaml
+
+from water_models import (
+    WaterStation, WaterMeasurement, WaterDataBatch,
+    WaterStationType, WaterParameterType, GeoCoordinate,
+    WATER_PARAMETER_RULES
+)
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
-
 class NOAAWaterIngestion:
-    """Handles water data ingestion from NOAA Global Water API for MENA region."""
+    """Ingest water data from NOAA Global Water API."""
 
     def __init__(self):
-        """Initialize NOAA water ingestion client."""
-        self.base_url = "https://www.ncei.noaa.gov/api"
-        self.region = os.getenv("NOAA_REGION", "MENA")
-        self.datasets = os.getenv("NOAA_DATASETS", "nclimgrid").split(",")
-        self.coordinates = os.getenv("NOAA_COORDINATES", "35.7942,10.1671")  # Default: Tunis
-        self.max_retries = int(os.getenv("MAX_RETRIES", 3))
-        self.retry_delay = int(os.getenv("RETRY_DELAY_SECONDS", 5))
-        self.minio = MinIOClient()
+        """Initialize NOAA water ingestion."""
+        self.base_url = os.getenv(
+            "NOAA_API_BASE_URL",
+            "https://www.ncei.noaa.gov/api/v2"
+        )
+        self.timeout = int(os.getenv("NOAA_TIMEOUT", "30"))
 
-        if not self.datasets or self.datasets == ['']:
-            raise ValueError("NOAA_DATASETS not set in .env")
+        # Load water sources config
+        self.config = self._load_config()
+        self.water_stations = self._initialize_stations()
 
-        logger.info(f"NOAA water ingestion initialized for region: {self.region}, datasets: {self.datasets}")
+        logger.info(f"NOAA Water Ingestion initialized with {len(self.water_stations)} stations")
 
-    def fetch_water_data(self, dataset: str) -> Optional[Dict[str, Any]]:
-        """
-        Fetch water data from NOAA for specified dataset with retry logic.
+    def _load_config(self) -> Dict[str, Any]:
+        """Load water configuration."""
+        config_path = "config/water_sources_config.yaml"
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                return yaml.safe_load(f)
+        return {}
 
-        Args:
-            dataset: NOAA dataset name (e.g., 'nclimgrid')
+    def _initialize_stations(self) -> List[WaterStation]:
+        """Initialize water stations from config."""
+        stations = []
 
-        Returns:
-            Water data dict or None if failed after retries
-        """
-        # Parse coordinates
-        lat, lon = self.coordinates.split(",")
+        if 'water_systems' not in self.config:
+            logger.warning("No water systems configured")
+            return stations
 
-        # Use NOAA CDO (Climate Data Online) API for gridded data
-        # This simulates NOAA climate/water data access
-        urls = [
-            f"https://origin.cpc.ncei.noaa.gov/products/assessment/current-state-climate/",
-            f"https://www.ncei.noaa.gov/pub/data/nclimgrid/v1.0.3/nclimgrid-tmax.latest.nc"
-        ]
-
-        for attempt in range(self.max_retries):
-            try:
-                logger.info(f"Fetching water data from NOAA {dataset} (attempt {attempt + 1}/{self.max_retries})")
-
-                # Try to fetch from NOAA public data repository
-                # For demonstration, we'll create synthesized data based on coordinates
-                response = requests.get(
-                    "https://www.ncei.noaa.gov/access/",
-                    timeout=10
+        for country, system in self.config['water_systems'].items():
+            for station_config in system.get('stations', []):
+                station = WaterStation(
+                    station_id=f"{country.upper()}_{station_config['name'].replace(' ', '_')}",
+                    station_name=station_config['name'],
+                    station_type=WaterStationType(station_config['type']),
+                    location=GeoCoordinate(
+                        latitude=station_config['latitude'],
+                        longitude=station_config['longitude'],
+                        region=country
+                    ),
+                    country_code=country.upper(),
+                    agency="NOAA",
+                    active=True
                 )
+                stations.append(station)
 
-                # Since NOAA endpoints may require authentication or specific formats,
-                # generate synthetic water data for the given coordinates
-                data = {
-                    "type": "NOAA Water Data",
-                    "region": self.region,
-                    "coordinates": {
-                        "latitude": float(lat.strip()),
-                        "longitude": float(lon.strip())
-                    },
-                    "dataset": dataset.strip(),
-                    "measurements": {
-                        "temperature_celsius": 25.3,
-                        "precipitation_mm": 45.2,
-                        "water_level_index": 78.5,
-                        "flow_rate_estimate": 234.7
-                    },
-                    "timestamp": datetime.utcnow().isoformat()
-                }
+        return stations
 
-                # Add metadata
-                data["_ingested_at"] = datetime.utcnow().isoformat()
-                data["_source"] = "noaa_global"
-                data["_region"] = self.region
-                data["_dataset"] = dataset
-                data["_coordinates"] = self.coordinates
+    def fetch_water_levels(self) -> List[WaterDataBatch]:
+        """Fetch current water levels for all stations."""
+        batches = []
 
-                logger.info(f"Successfully fetched water data from NOAA {dataset}")
-                return data
-
-            except requests.exceptions.Timeout:
-                logger.warning(f"Timeout fetching NOAA {dataset} (attempt {attempt + 1})")
-            except requests.exceptions.HTTPError as e:
-                logger.warning(f"HTTP error: {e.response.status_code} (attempt {attempt + 1})")
-            except Exception as e:
-                logger.warning(f"Error fetching water data from NOAA: {e} (attempt {attempt + 1})")
-
-            # Wait before retrying
-            if attempt < self.max_retries - 1:
-                logger.info(f"Waiting {self.retry_delay}s before retry...")
-                time.sleep(self.retry_delay)
-
-        logger.error(f"Failed to fetch water data from NOAA {dataset} after {self.max_retries} attempts")
-        return None
-
-    def validate_water_data(self, data: Dict[str, Any]) -> bool:
-        """
-        Validate water data has required fields.
-
-        Args:
-            data: Water data dictionary
-
-        Returns:
-            True if valid, False otherwise
-        """
-        try:
-            # Check for required fields from NOAA API
-            if "results" not in data and "data" not in data:
-                logger.warning(f"Missing 'results' or 'data' field in NOAA water data")
-                # Some NOAA responses might have different structure
-                if isinstance(data, dict) and len(data) > 0:
-                    logger.info(f"NOAA data structure: {list(data.keys())}")
-                    return True
-                return False
-
-            logger.info(f"Water data validation passed")
-            return True
-
-        except Exception as e:
-            logger.error(f"Error validating water data: {e}")
-            return False
-
-    def ingest_all_datasets(self) -> Dict[str, Any]:
-        """
-        Fetch water data for all configured NOAA datasets.
-
-        Returns:
-            Summary of ingestion results
-        """
-        logger.info(f"Starting NOAA water ingestion for {len(self.datasets)} datasets in {self.region} region")
-
-        results = {
-            "total_datasets": len(self.datasets),
-            "successful": 0,
-            "failed": 0,
-            "validated": 0,
-            "uploaded": 0,
-            "timestamp": datetime.utcnow().isoformat(),
-            "region": self.region,
-            "coordinates": self.coordinates,
-            "details": {}
-        }
-
-        # Ensure MinIO bucket exists
-        self.minio.ensure_bucket_exists()
-
-        for dataset in self.datasets:
+        for station in self.water_stations:
             try:
-                # Fetch data
-                water_data = self.fetch_water_data(dataset)
+                batch = self._fetch_station_data(station)
+                if batch:
+                    batches.append(batch)
+                    logger.info(f"✓ Successfully fetched data for {station.station_name}")
+            except Exception as e:
+                logger.error(f"✗ Failed to fetch data for {station.station_name}: {e}")
+                continue
 
-                if not water_data:
-                    results["failed"] += 1
-                    results["details"][dataset] = "Failed to fetch"
+        return batches
+
+    def _fetch_station_data(self, station: WaterStation) -> Optional[WaterDataBatch]:
+        """Fetch data for a single station."""
+        try:
+            # Build request for NOAA gridded climate data
+            endpoint = f"{self.base_url}/climgrid"
+
+            params = {
+                'lat': station.location.latitude,
+                'lon': station.location.longitude,
+                'bbox': f'{station.location.latitude-1},{station.location.longitude-1},'
+                        f'{station.location.latitude+1},{station.location.longitude+1}',
+                'format': 'json',
+                'dataTypes': 'pcp,tmax,tmin'  # Precipitation, temperature
+            }
+
+            response = requests.get(endpoint, params=params, timeout=self.timeout)
+            response.raise_for_status()
+
+            data = response.json()
+            measurements = self._parse_measurements(station, data)
+
+            batch = WaterDataBatch(
+                batch_id=str(uuid.uuid4()),
+                station=station,
+                measurements=measurements,
+                batch_timestamp=datetime.utcnow(),
+                source="NOAA",
+                total_records=len(measurements)
+            )
+
+            return batch
+
+        except requests.RequestException as e:
+            logger.error(f"Request failed for {station.station_name}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error processing station {station.station_name}: {e}")
+            return None
+
+    def _parse_measurements(self, station: WaterStation, data: Dict) -> List[WaterMeasurement]:
+        """Parse NOAA response into measurements."""
+        measurements = []
+
+        if 'results' not in data:
+            return measurements
+
+        for result in data.get('results', []):
+            try:
+                # Precipitation measurement
+                if 'pcp' in result:
+                    measurement = WaterMeasurement(
+                        measurement_id=str(uuid.uuid4()),
+                        station_id=station.station_id,
+                        station_name=station.station_name,
+                        parameter=WaterParameterType.PRECIPITATION,
+                        value=float(result['pcp']),
+                        unit='mm',
+                        timestamp=datetime.fromisoformat(result['date']),
+                        data_source="NOAA",
+                        is_validated=False
+                    )
+                    measurements.append(measurement)
+
+                # Temperature measurements
+                if 'tmax' in result:
+                    temp_measurement = WaterMeasurement(
+                        measurement_id=str(uuid.uuid4()),
+                        station_id=station.station_id,
+                        station_name=station.station_name,
+                        parameter=WaterParameterType.TEMPERATURE,
+                        value=float(result['tmax']),
+                        unit='°C',
+                        timestamp=datetime.fromisoformat(result['date']),
+                        data_source="NOAA",
+                        is_validated=False
+                    )
+                    measurements.append(temp_measurement)
+
+            except (KeyError, ValueError) as e:
+                logger.warning(f"Failed to parse measurement for {station.station_name}: {e}")
+                continue
+
+        return measurements
+
+    def validate_measurements(self, measurements: List[WaterMeasurement]) -> tuple:
+        """Validate water measurements against rules."""
+        valid = []
+        invalid = []
+
+        for measurement in measurements:
+            try:
+                rules = WATER_PARAMETER_RULES.get(measurement.parameter)
+                if not rules:
+                    logger.warning(f"No validation rules for {measurement.parameter}")
+                    valid.append(measurement)
                     continue
 
-                results["successful"] += 1
-
-                # Validate data
-                if not self.validate_water_data(water_data):
-                    results["details"][dataset] = "Validation failed"
-                    continue
-
-                results["validated"] += 1
-
-                # Upload to MinIO
-                self.minio.upload_data("noaa_water", water_data)
-                results["uploaded"] += 1
-                results["details"][dataset] = "Success"
+                if not (rules['min'] <= measurement.value <= rules['max']):
+                    measurement.notes = (
+                        f"Value {measurement.value} {measurement.unit} out of range "
+                        f"[{rules['min']}, {rules['max']}]"
+                    )
+                    invalid.append(measurement)
+                else:
+                    measurement.is_validated = True
+                    valid.append(measurement)
 
             except Exception as e:
-                logger.error(f"Error processing dataset {dataset}: {e}")
-                results["failed"] += 1
-                results["details"][dataset] = str(e)
+                logger.error(f"Validation error for {measurement.measurement_id}: {e}")
+                invalid.append(measurement)
 
-        logger.info(f"NOAA water ingestion complete: {results['uploaded']}/{results['total_datasets']} uploaded")
-        return results
+        return valid, invalid
 
 
 def main():
-    """Main entry point for NOAA water ingestion."""
-    try:
-        ingestion = NOAAWaterIngestion()
-        results = ingestion.ingest_all_datasets()
+    """Main ingestion function."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s'
+    )
 
-        # Log summary
-        logger.info(f"\n=== NOAA WATER INGESTION SUMMARY ===")
-        logger.info(f"Region: {results['region']}")
-        logger.info(f"Coordinates: {results['coordinates']}")
-        logger.info(f"Total datasets: {results['total_datasets']}")
-        logger.info(f"Successful: {results['successful']}")
-        logger.info(f"Failed: {results['failed']}")
-        logger.info(f"Validated: {results['validated']}")
-        logger.info(f"Uploaded: {results['uploaded']}")
+    ingestion = NOAAWaterIngestion()
 
-        return results
-    except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=True)
-        raise
+    # Fetch water data
+    logger.info("Starting NOAA water data ingestion...")
+    batches = ingestion.fetch_water_levels()
+
+    # Validate all measurements
+    all_valid = []
+    all_invalid = []
+
+    for batch in batches:
+        valid, invalid = ingestion.validate_measurements(batch.measurements)
+        all_valid.extend(valid)
+        all_invalid.extend(invalid)
+        batch.failed_records = len(invalid)
+
+    # Log results
+    logger.info(f"✓ Ingestion complete: {len(all_valid)} valid, {len(all_invalid)} invalid")
+
+    # Return for MinIO storage
+    return batches
 
 
 if __name__ == "__main__":

@@ -212,7 +212,30 @@ with dag:
     quality_check >> dbt_run >> dbt_test
     dbt_test >> enrichment >> end
 
+def fetch_water_data():
+    """Task: Fetch water data from NOAA and USGS."""
+    import subprocess
+    result = subprocess.run(
+        ['python', 'src/ingestion/noaa_water_ingestion.py'],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        logger.error(f"Water ingestion failed: {result.stderr}")
+        raise Exception("Water ingestion failed")
+    logger.info("Water ingestion successful")
+    return result.stdout
 
+
+# Add to DAG task group (after fetch_weather)
+fetch_water = PythonOperator(
+    task_id='fetch_water_data',
+    python_callable=fetch_water_data,
+    retries=2,
+)
+
+# Update dependencies
+[fetch_weather, fetch_water] >> produce_stream
 # Task documentation
 start.doc = """
 ### Setup Task
