@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: data-pipeline-dashboard
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: POSTGRES_HOST
+        value: YOUR_DATABASE_URL
+      - key: DATABASE_URL
+        fromDatabase:
+          name: data-pipeline-db
+          property: connectionString
+
+databases:
+  - name: data-pipeline-db
+    plan: free
+    initializer:
+      type: file
+      path: config/init.sql
