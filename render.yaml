@@ -5,6 +5,7 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     autoDeploy: true
+    healthCheckPath: /_stcore/health
     envVars:
       - key: POSTGRES_HOST
         value: YOUR_DATABASE_URL
