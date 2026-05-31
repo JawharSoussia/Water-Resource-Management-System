@@ -9,7 +9,7 @@ import uuid
 from dotenv import load_dotenv
 import yaml
 
-from water_models import (
+from .water_models import (
     WaterStation, WaterMeasurement, WaterDataBatch,
     WaterStationType, WaterParameterType, GeoCoordinate,
     WATER_PARAMETER_RULES
@@ -29,12 +29,56 @@ class NOAAWaterIngestion:
             "https://www.ncei.noaa.gov/api/v2"
         )
         self.timeout = int(os.getenv("NOAA_TIMEOUT", "30"))
+        self.region = os.getenv("NOAA_REGION", "MENA")
+        self.datasets = [
+            ds.strip()
+            for ds in os.getenv("NOAA_DATASETS", "nclimgrid").split(",")
+            if ds.strip()
+        ]
 
         # Load water sources config
         self.config = self._load_config()
         self.water_stations = self._initialize_stations()
 
         logger.info(f"NOAA Water Ingestion initialized with {len(self.water_stations)} stations")
+
+    def validate_water_data(self, data: Dict[str, Any]) -> bool:
+        """Backward-compatible NOAA payload validation used in unit tests."""
+        if not isinstance(data, dict):
+            return False
+
+        results = data.get("results")
+        if results is None:
+            return False
+
+        if not isinstance(results, list):
+            return False
+
+        if not results:
+            return True
+
+        required_keys = {"dataset", "latitude", "longitude"}
+        return all(required_keys.issubset(item.keys()) for item in results if isinstance(item, dict))
+
+    def fetch_water_data(self, dataset: str) -> Optional[Dict[str, Any]]:
+        """Backward-compatible single-call fetch interface used in unit tests."""
+        try:
+            endpoint = f"{self.base_url}/{dataset}"
+            response = requests.get(endpoint, timeout=self.timeout)
+            response.raise_for_status()
+            payload = response.json()
+
+            if not isinstance(payload, dict):
+                return None
+
+            payload["_source"] = "noaa_global"
+            payload["_region"] = self.region
+            payload["_dataset"] = dataset
+            payload["_timestamp"] = datetime.utcnow().isoformat()
+            return payload
+        except Exception as e:
+            logger.error(f"Failed to fetch NOAA dataset {dataset}: {e}")
+            return None
 
     def _load_config(self) -> Dict[str, Any]:
         """Load water configuration."""

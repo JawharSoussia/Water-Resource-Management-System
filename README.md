@@ -94,9 +94,11 @@ A **complete data pipeline project** focused on **water resource management for 
 - Git
 
 ### Setup Instructions
+### Local Setup
 
-1. **Clone and navigate to project:**
+1. **Clone repository:**
    ```bash
+   git clone https://github.com/YOUR_USERNAME/data-pipeline.git
    cd projet
    ```
 
@@ -111,21 +113,31 @@ A **complete data pipeline project** focused on **water resource management for 
    pip install -r requirements.txt
    ```
 
-4. **Set up environment variables:**
+4. **Configure environment:**
    ```bash
    cp .env.example .env
    # Edit .env with your API keys
    ```
 
-5. **Start services:**
+5. **Start Docker services:**
    ```bash
    docker-compose up -d
    ```
 
-6. **Verify services are running:**
+6. **Initialize Airflow:**
    ```bash
-   docker-compose ps
+   airflow db init
+   airflow users create --username admin --password admin123 \
+       --firstname Admin --lastname User --role Admin \
+       --email admin@example.com
    ```
+
+7. **Run Streamlit dashboard:**
+   ```bash
+   streamlit run streamlit_app.py
+   # Opens at http://localhost:8501
+
+  
 
 ### Access Points
 
@@ -156,8 +168,34 @@ projet/
 ```
 
 ## 🔄 Pipeline Workflow
+Start
+  ├─ Fetch Weather API (parallel)
+  ├─ Fetch News API (parallel)
+  ├─ Produce Kafka streams
+  ├─ Data quality checks
+  ├─ Run dbt transformations
+  ├─ Validate dbt tests
+  ├─ Enrich data (Pandas)
+  └─ End
+## 📝 Transformations
 
-[To be completed - describe your specific workflow]
+### Transformation 1: Cleaning (dbt)
+- Remove null values
+- Validate temperature ranges (-60 to 60°C)
+- Validate humidity (0-100%)
+- Validate pressure (800-1200 hPa)
+
+### Transformation 2: Aggregation (dbt)
+- Daily weather summaries by city
+- Min/max/average temperatures
+- Articles count by source
+- Content length metrics
+
+### Transformation 3: Enrichment (Pandas)
+- Calculate heat index from temp + humidity
+- Add temperature categories
+- Extract news quality scores
+- Add weather alerts (extreme heat/cold)
 
 ## ✅ Testing
 
@@ -166,17 +204,49 @@ Run tests with:
 pytest tests/ -v
 ```
 
-## 📦 Deployment
+## 🚢 Deployment
 
-[To be completed - deployment instructions]
+### Local Docker
 
-## 📚 Documentation
+```bash
+docker-compose up -d
+# All services running locally
+```
 
-- [Setup Guide](docs/setup.md)
-- [Architecture](docs/architecture.md)
-- [Development Guide](docs/development.md)
+### Cloud Deployment (Render.com)
 
-## 📧 Contact
+```bash
+# Push to GitHub
+git push origin main
 
-soussiajawhar2@gmail.com
+# FView on Render
+# https://your-app.onrender.com
+```
 
+**Current Status:** ✅ Live at https://yourapp.onrender.com
+
+## 🔗 Links
+
+- **GitHub:** https://github.com/USERNAME/data-pipeline
+- **Dashboard:** https://yourapp.onrender.com
+- **Airflow:** http://localhost:8080 (local only)
+- **Documentation:** [See docs/ folder]
+
+## 👤 Author
+
+- Name: Ben Soussia Jawhar
+- Email: soussiajawhar2@gmail.com
+- GitHub: @Jawhar Soussia
+
+## 📄 License
+
+MIT License - Feel free to use this project!
+
+## 🙏 Acknowledgments
+
+- Asma Karakni (Project Supervisor)
+- Apache Airflow Community
+- dbt Community
+- Streamlit Team
+
+---

@@ -9,7 +9,7 @@ from minio import Minio
 from minio.error import S3Error
 from dotenv import load_dotenv
 
-from water_models import WaterDataBatch
+from .water_models import WaterDataBatch
 
 load_dotenv()
 

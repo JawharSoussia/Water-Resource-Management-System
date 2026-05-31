@@ -613,7 +613,7 @@ MIT License - Feel free to use this project!
 
 **Last Updated:** [DATE]
 **Data Last Refreshed:** [FROM DASHBOARD]
-```
+
 
 ---
 
@@ -952,9 +952,9 @@ The code is available on GitHub, and the dashboard is live at [URL]. Feel free t
 - **Recording:** OBS Studio (free), Loom (free), ScreenFlow (Mac)
 - **Editing:** DaVinci Resolve (free), Adobe Premiere
 - **Upload:** YouTube, Loom, OneDrive
-```
 
----
+
+
 
 ## 📋 Final Commit
 
