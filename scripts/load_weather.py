@@ -76,7 +76,10 @@ def refresh_warehouse(engine, weather):
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """))
-        weather.to_sql("stg_weather", engine, schema="staging", if_exists="replace", index=False)
+
+    weather.to_sql("stg_weather", engine, schema="staging", if_exists="replace", index=False)
+
+    with engine.begin() as connection:
         connection.execute(text("DROP TABLE IF EXISTS marts.weather_enriched"))
         connection.execute(text("""
             CREATE TABLE marts.weather_enriched AS
