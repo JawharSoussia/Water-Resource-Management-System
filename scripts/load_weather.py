@@ -76,6 +76,15 @@ def refresh_warehouse(engine, weather):
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """))
+        connection.execute(text("""
+            CREATE TABLE IF NOT EXISTS marts.news_daily_metrics (
+                published_date DATE NOT NULL,
+                source_name TEXT NOT NULL,
+                articles_count INTEGER NOT NULL DEFAULT 0,
+                unique_authors INTEGER NOT NULL DEFAULT 0,
+                avg_content_length NUMERIC(10, 2) NOT NULL DEFAULT 0
+            )
+        """))
 
     weather.to_sql("stg_weather", engine, schema="staging", if_exists="replace", index=False)
 
