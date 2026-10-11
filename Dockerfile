@@ -2,18 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    postgresql-client \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
 # Copy Streamlit requirements
 COPY requirements-streamlit.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements-streamlit.txt
+RUN pip install --no-cache-dir --default-timeout=300 --retries=5 -r requirements-streamlit.txt
 
 # Copy project files
 COPY . .

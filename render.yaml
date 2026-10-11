@@ -1,22 +1,33 @@
 services:
   - type: web
-    name: data-pipeline-dashboard
-    env: docker
+    name: aqua-dashboard
+    runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile
     autoDeploy: true
     healthCheckPath: /_stcore/health
     envVars:
-      - key: POSTGRES_HOST
-        value: YOUR_DATABASE_URL
       - key: DATABASE_URL
         fromDatabase:
-          name: data-pipeline-db
+          name: aqua-db
+          property: connectionString
+
+  - type: cron
+    name: aqua-weather-ingestion
+    runtime: docker
+    plan: starter
+    schedule: "0 * * * *"
+    dockerfilePath: ./Dockerfile
+    dockerCommand: python scripts/load_weather.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aqua-db
           property: connectionString
 
 databases:
-  - name: data-pipeline-db
+  - name: aqua-db
     plan: free
     initializer:
       type: file
-      path: config/init.sql
+      path: config/render_init.sql
