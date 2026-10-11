@@ -8,23 +8,4 @@ services:
     healthCheckPath: /_stcore/health
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: aqua-db
-          property: connectionString
-
-  - type: cron
-    name: aqua-weather-ingestion
-    runtime: docker
-    plan: starter
-    schedule: "0 * * * *"
-    dockerfilePath: ./Dockerfile
-    dockerCommand: python scripts/load_weather.py
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: aqua-db
-          property: connectionString
-
-databases:
-  - name: aqua-db
-    plan: free
+        sync: false

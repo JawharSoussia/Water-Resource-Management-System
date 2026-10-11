@@ -213,17 +213,43 @@ docker-compose up -d
 # All services running locally
 ```
 
-### Cloud Deployment (Render.com)
+### Free Cloud Deployment
+
+The free deployment uses Streamlit Community Cloud for the dashboard, Neon
+free PostgreSQL for the warehouse, and GitHub Actions for hourly ingestion.
+Render's scheduled jobs require a paid plan, so Render is not used for
+automation.
 
 ```bash
-# Push to GitHub
 git push origin main
-
-# FView on Render
-# https://your-app.onrender.com
 ```
 
-**Current Status:** ✅ Live at https://yourapp.onrender.com
+#### 1. Create the free PostgreSQL database
+
+Create a database on Neon and copy its pooled connection string. It normally
+starts with `postgresql://` and includes `sslmode=require`.
+
+#### 2. Add the GitHub Actions secret
+
+In GitHub, open **Settings → Secrets and variables → Actions**, create a
+repository secret named `DATABASE_URL`, and paste the Neon connection string.
+
+The workflow in
+`.github/workflows/weather-ingestion.yml` runs once per hour and can also be
+started manually with **Actions → Hourly weather ingestion → Run workflow**.
+
+#### 3. Deploy the dashboard
+
+Create a Streamlit Community Cloud app from this repository:
+
+- Main file: `streamlit_app.py`
+- Branch: `main`
+- Secret name: `DATABASE_URL`
+- Secret value: the same Neon connection string
+
+The dashboard reads live PostgreSQL data whenever the connection is
+available. If the secret is missing or the database is empty, it clearly
+labels the fallback values as demo data.
 
 ## 🔗 Links
 
