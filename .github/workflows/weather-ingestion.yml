@@ -25,3 +25,8 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scripts/load_weather.py
+      - name: Verify warehouse rows
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python -c "from scripts.load_weather import database_engine; from sqlalchemy import text; e=database_engine(); print(dict(e.connect().execute(text(\"SELECT (SELECT COUNT(*) FROM staging.stg_weather) AS staging_rows, (SELECT COUNT(*) FROM marts.weather_daily_summary) AS summary_rows\" )).mappings().one()))"

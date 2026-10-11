@@ -91,7 +91,7 @@ def refresh_warehouse(engine, weather):
                 (temperature_celsius < -15)::int AS has_extreme_cold,
                 (wind_speed_ms > 10)::int AS has_high_wind,
                 (visibility_meters < 1000)::int AS has_low_visibility,
-                CURRENT_TIMESTAMP AS enriched_at
+                CURRENT_TIMESTAMP AS created_at
             FROM staging.stg_weather
         """))
         connection.execute(text("DROP TABLE IF EXISTS marts.weather_daily_summary"))

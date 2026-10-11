@@ -141,10 +141,19 @@ def _demo_weather_enriched():
     })
 
 # Database connection
+def _database_url():
+    """Read the cloud database URL from Streamlit secrets or the environment."""
+    try:
+        secret_url = st.secrets.get("DATABASE_URL")
+    except FileNotFoundError:
+        secret_url = None
+    return secret_url or os.getenv("DATABASE_URL")
+
+
 @st.cache_resource
 def get_db_connection():
     """Create cached database connection."""
-    database_url = os.getenv("DATABASE_URL")
+    database_url = _database_url()
     if database_url:
         database_url = database_url.replace("postgres://", "postgresql://", 1)
         return create_engine(database_url, pool_pre_ping=True)
