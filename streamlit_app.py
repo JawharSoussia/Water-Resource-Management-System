@@ -82,6 +82,12 @@ st.markdown("""
             text-transform: uppercase;
             margin: 8px 0;
         }
+        h1, h2, h3, h4, p, label, [data-testid="stMarkdownContainer"] {
+            color: #172b4d;
+        }
+        [data-testid="stAlert"] p {
+            color: inherit;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -122,6 +128,16 @@ def _demo_news_data():
                 "avg_content_length": 720 + source_index * 90 + day_index * 12,
             })
     return pd.DataFrame(rows)
+
+
+def _empty_news_data():
+    return pd.DataFrame(columns=[
+        "published_date",
+        "source_name",
+        "articles_count",
+        "unique_authors",
+        "avg_content_length",
+    ])
 
 
 def _demo_weather_enriched():
@@ -214,12 +230,12 @@ def get_news_data():
         """
         df = pd.read_sql(query, engine)
         engine.dispose()
-        return df if not df.empty else _demo_news_data()
+        return df
     except Exception as e:
         global DATA_SOURCE_MODE
         DATA_SOURCE_MODE = "DEMO"
         logger.error(f"Error fetching news data: {e}")
-        return _demo_news_data()
+        return _empty_news_data()
 
 
 @st.cache_data(ttl=600)
@@ -301,7 +317,11 @@ if page == "Overview":
         st.metric("Weather records", f"{len(enriched_df):,}", "Enriched sample")
 
     with col2:
-        st.metric("News articles", f"{int(news_df['articles_count'].sum()):,}", "14-day window")
+        st.metric(
+            "News articles",
+            f"{int(news_df['articles_count'].sum()):,}",
+            "No ingestion yet" if news_df.empty else "Live warehouse",
+        )
 
     with col3:
         st.metric("Avg temperature", f"{weather_df['avg_temperature_celsius'].mean():.1f}°C")
@@ -335,32 +355,43 @@ if page == "Overview":
 
     with col2:
         st.markdown("**Articles by Source**")
-        source_totals = news_df.groupby("source_name", as_index=False)["articles_count"].sum()
-        fig_source = px.bar(
-            source_totals, x="articles_count", y="source_name", orientation="h",
-            color="articles_count", color_continuous_scale=["#9be7c4", "#087f5b"],
-        )
-        fig_source.update_layout(
-            height=260, margin=dict(l=0, r=0, t=10, b=0),
-            showlegend=False, coloraxis_showscale=False,
-        )
-        st.plotly_chart(fig_source, use_container_width=True)
+        if news_df.empty:
+            st.info("No news records are available yet. Weather data is live.")
+        else:
+            source_totals = news_df.groupby("source_name", as_index=False)["articles_count"].sum()
+            fig_source = px.bar(
+                source_totals, x="articles_count", y="source_name", orientation="h",
+                color="articles_count", color_continuous_scale=["#9be7c4", "#087f5b"],
+            )
+            fig_source.update_layout(
+                height=260, margin=dict(l=0, r=0, t=10, b=0),
+                showlegend=False, coloraxis_showscale=False,
+            )
+            st.plotly_chart(fig_source, use_container_width=True)
 
     st.subheader("Temperature Trend")
     trend = weather_df.groupby("weather_date", as_index=False)["avg_temperature_celsius"].mean()
-    fig = px.area(
+    fig = px.line(
         trend, x="weather_date", y="avg_temperature_celsius",
         labels={"weather_date": "Date", "avg_temperature_celsius": "Average °C"},
         color_discrete_sequence=["#168aad"],
+        markers=True,
     )
-    fig.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0))
+    fig.update_layout(
+        height=300,
+        margin=dict(l=0, r=0, t=10, b=0),
+        xaxis=dict(type="category"),
+    )
     st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("Pipeline Evidence")
     evidence = pd.DataFrame([
         {"Stage": "Dashboard service", "Result": "Healthy", "Evidence": "Streamlit health endpoint: HTTP 200"},
         {"Stage": "Weather transformation", "Result": "Computed", "Evidence": f"{len(weather_df):,} rows across 3 cities"},
-        {"Stage": "News aggregation", "Result": "Computed", "Evidence": f"{int(news_df['articles_count'].sum()):,} articles in 14 days"},
+        {"Stage": "News aggregation",
+         "Result": "No data" if news_df.empty else "Computed",
+         "Evidence": "No news ingestion configured yet" if news_df.empty
+         else f"{int(news_df['articles_count'].sum()):,} articles"},
         {"Stage": "Warehouse connection", "Result": "Live" if DATA_SOURCE_MODE == "LIVE" else "Waiting",
          "Evidence": "PostgreSQL query results" if DATA_SOURCE_MODE == "LIVE" else "Demo data is active until PostgreSQL is available"},
     ])
