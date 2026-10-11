@@ -28,6 +28,3 @@ services:
 databases:
   - name: aqua-db
     plan: free
-    initializer:
-      type: file
-      path: config/render_init.sql
